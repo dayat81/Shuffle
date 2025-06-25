@@ -164,9 +164,9 @@ echo "---------------------"
 
 if [[ "$DOCKER_OK" == true ]]; then
     # Check if docker-compose.dev.yml services are running
-    if docker-compose -f docker-compose.dev.yml ps --services --filter "status=running" 2>/dev/null | grep -q .; then
+    if docker-compose -f docker-compose.dev.yml ps -q 2>/dev/null | grep -q .; then
         echo "Running containers:"
-        docker-compose -f docker-compose.dev.yml ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || \
+        docker-compose -f docker-compose.dev.yml ps 2>/dev/null || \
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter "name=shuffle"
     else
         echo -e "${CROSS} ${RED}No Shuffle Docker services running${NC}"
@@ -197,7 +197,14 @@ fi
 
 # OpenSearch
 if check_port 9200 "OpenSearch (Database)"; then
-    check_http "http://localhost:9200" "OpenSearch" 3
+    # Try HTTPS first (OpenSearch often uses HTTPS), then fallback to HTTP
+    if curl -s --max-time 3 -k "https://localhost:9200" > /dev/null 2>&1; then
+        echo -e "${CHECK} ${GREEN}OpenSearch${NC} - HTTPS endpoint responding"
+    elif curl -s --max-time 3 "http://localhost:9200" > /dev/null 2>&1; then
+        echo -e "${CHECK} ${GREEN}OpenSearch${NC} - HTTP endpoint responding"
+    else
+        echo -e "${CROSS} ${RED}OpenSearch${NC} - HTTP/HTTPS endpoints not responding"
+    fi
 else
     echo -e "   ${INFO} Start with: ./dev-start.sh"
 fi
@@ -230,9 +237,15 @@ echo "=====================================+"
 
 # Count running services
 RUNNING_SERVICES=0
-check_port 3000 "" && ((RUNNING_SERVICES++)) || true
-check_port 5001 "" && ((RUNNING_SERVICES++)) || true  
-check_port 9200 "" && ((RUNNING_SERVICES++)) || true
+if netstat -tuln 2>/dev/null | grep -q ":3000 " || ss -tuln 2>/dev/null | grep -q ":3000 "; then
+    ((RUNNING_SERVICES++))
+fi
+if netstat -tuln 2>/dev/null | grep -q ":5001 " || ss -tuln 2>/dev/null | grep -q ":5001 "; then
+    ((RUNNING_SERVICES++))
+fi
+if netstat -tuln 2>/dev/null | grep -q ":9200 " || ss -tuln 2>/dev/null | grep -q ":9200 "; then
+    ((RUNNING_SERVICES++))
+fi
 
 if [[ $RUNNING_SERVICES -eq 3 ]]; then
     echo -e "${CHECK} ${GREEN}All services running${NC} - Ready for development!"
@@ -246,9 +259,15 @@ elif [[ $RUNNING_SERVICES -gt 0 ]]; then
     echo -e "${WARNING} ${YELLOW}Partial setup${NC} - $RUNNING_SERVICES/3 services running"
     echo ""
     echo -e "${BLUE}💡 Next steps:${NC}"
-    [[ $(check_port 9200 "" 2>/dev/null; echo $?) -ne 0 ]] && echo "   • Start Docker services: ./dev-start.sh"
-    [[ $(check_port 3000 "" 2>/dev/null; echo $?) -ne 0 ]] && echo "   • Start frontend: ./dev-frontend.sh"
-    [[ $(check_port 5001 "" 2>/dev/null; echo $?) -ne 0 ]] && echo "   • Start backend: ./dev-backend.sh"
+    if ! netstat -tuln 2>/dev/null | grep -q ":9200 " && ! ss -tuln 2>/dev/null | grep -q ":9200 "; then
+        echo "   • Start Docker services: ./dev-start.sh"
+    fi
+    if ! netstat -tuln 2>/dev/null | grep -q ":3000 " && ! ss -tuln 2>/dev/null | grep -q ":3000 "; then
+        echo "   • Start frontend: ./dev-frontend.sh"
+    fi
+    if ! netstat -tuln 2>/dev/null | grep -q ":5001 " && ! ss -tuln 2>/dev/null | grep -q ":5001 "; then
+        echo "   • Start backend: ./dev-backend.sh"
+    fi
 else
     echo -e "${CROSS} ${RED}No services running${NC} - Development environment not started"
     echo ""

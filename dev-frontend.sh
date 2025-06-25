@@ -28,8 +28,9 @@ if ! curl -s http://localhost:5001/api/v1/health > /dev/null 2>&1; then
 fi
 
 # Start development server
-echo "🚀 Starting frontend development server..."
+echo "🚀 Starting frontend development server with hot reload..."
 echo "   Access at: http://localhost:3000"
+echo "   🔥 Hot reload is enabled - changes will be reflected automatically"
 echo "   Press Ctrl+C to stop"
 echo ""
 
