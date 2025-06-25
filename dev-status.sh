@@ -99,6 +99,7 @@ else
 fi
 
 # Go
+export PATH=$HOME/go-local/bin:$PATH
 if command_exists go; then
     echo -e "${CHECK} ${GREEN}Go${NC} - $(go version | cut -d' ' -f3)"
 else
@@ -112,8 +113,8 @@ echo -e "${BLUE}⚙️  System Configuration${NC}"
 echo "-----------------------------"
 
 # vm.max_map_count
-MAX_MAP_COUNT=$(sysctl -n vm.max_map_count 2>/dev/null || echo "unknown")
-if [[ "$MAX_MAP_COUNT" -ge 262144 ]]; then
+MAX_MAP_COUNT=$(sysctl -n vm.max_map_count 2>/dev/null || cat /proc/sys/vm/max_map_count 2>/dev/null || echo "unknown")
+if [[ "$MAX_MAP_COUNT" =~ ^[0-9]+$ ]] && [[ "$MAX_MAP_COUNT" -ge 262144 ]]; then
     echo -e "${CHECK} ${GREEN}vm.max_map_count${NC} - $MAX_MAP_COUNT (sufficient for OpenSearch)"
 else
     echo -e "${WARNING} ${YELLOW}vm.max_map_count${NC} - $MAX_MAP_COUNT (should be >= 262144)"
